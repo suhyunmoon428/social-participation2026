@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  @apply bg-slate-50 text-slate-700 antialiased;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer components {
+  .np-input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800
+           shadow-sm placeholder:text-slate-400
+           focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100;
+  }
+
+  .np-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5
+           text-sm font-semibold text-white shadow-sm transition
+           hover:bg-violet-700 active:scale-[0.98]
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .np-button-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200
+           bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition
+           hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .np-card {
+    @apply rounded-2xl border border-slate-200/80 bg-white p-5 shadow-md;
+  }
+
+  .np-editor {
+    @apply w-full resize-none border-0 bg-transparent p-0 text-[15px] leading-7 text-slate-800
+           placeholder:text-slate-300 focus:outline-none focus:ring-0;
+  }
+
+  .ws-gradient {
+    background: linear-gradient(135deg, #f5f3ff 0%, #f0f9ff 45%, #fafafa 100%);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
