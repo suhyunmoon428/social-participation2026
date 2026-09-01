@@ -15,7 +15,7 @@ import {
 } from "@/lib/deadlines";
 import { apiFetch } from "@/lib/fetcher";
 import { formatKoreanDateTime } from "@/lib/format";
-import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { isRealtimeConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import { STAGE_COUNT, STAGES, getStageSubmissions, migrateStage4, stageCompletion, type ProjectContent, type StageDef } from "@/lib/stages";
 import { getFieldFeedback } from "@/lib/stageFeedback";
 import type { AiFeedback, LastEditor, TeacherFeedback } from "@/lib/workspace";
@@ -74,6 +74,9 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
   const [topicTitle, setTopicTitle] = useState(data.project.title || "주제를 입력해 주세요");
   const [teamName, setTeamName] = useState(data.team.name);
   const [peers, setPeers] = useState<Record<string, PeerPresence>>({});
+  const [realtimeStatus, setRealtimeStatus] = useState<
+    "disabled" | "connecting" | "connected" | "error"
+  >(() => (isRealtimeConfigured() ? "connecting" : "disabled"));
 
   const isOwner = data.student.id === data.team.ownerId;
 
@@ -191,7 +194,10 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
 
   useEffect(() => {
     const client = supabaseBrowser();
-    if (!client) return;
+    if (!client) {
+      setRealtimeStatus("disabled");
+      return;
+    }
 
     const channel = client.channel(`team:${data.team.id}`, {
       config: { broadcast: { self: false } },
@@ -231,12 +237,16 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
         if (t) setTopicTitle(t);
         if (n) setTeamName(n);
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") setRealtimeStatus("connected");
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setRealtimeStatus("error");
+      });
 
     channelRef.current = channel;
     return () => {
       client.removeChannel(channel);
       channelRef.current = null;
+      setRealtimeStatus(isRealtimeConfigured() ? "connecting" : "disabled");
     };
   }, [data.team.id, data.student.id]);
 
@@ -463,6 +473,22 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
           </span>
         </div>
         <CollaboratorBar peers={activePeers} />
+        {realtimeStatus === "disabled" && (
+          <div className="border-t border-amber-200 bg-amber-50 px-5 py-2 text-[11px] leading-5 text-amber-900">
+            ⚠️ 실시간 협업이 꺼져 있어요. Vercel에{" "}
+            <b>NEXT_PUBLIC_SUPABASE_ANON_KEY</b> 환경변수를 추가한 뒤 Redeploy 해 주세요.
+          </div>
+        )}
+        {realtimeStatus === "error" && (
+          <div className="border-t border-rose-200 bg-rose-50 px-5 py-2 text-[11px] leading-5 text-rose-900">
+            ⚠️ 실시간 연결에 실패했어요. Supabase URL·anon key가 맞는지 확인해 주세요.
+          </div>
+        )}
+        {realtimeStatus === "connected" && activePeers.length === 0 && (
+          <div className="border-t border-emerald-100 bg-emerald-50/80 px-5 py-1.5 text-[10px] text-emerald-800">
+            🟢 실시간 협업 연결됨 — 팀원이 같은 항목을 열면 이름과 커서가 보여요.
+          </div>
+        )}
       </header>
 
       <div className="flex min-h-0 flex-1">
