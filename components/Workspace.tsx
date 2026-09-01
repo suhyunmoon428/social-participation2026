@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CollaboratorBar } from "@/components/CollaboratorBar";
 import { FeedbackPanel } from "@/components/FeedbackPanel";
 import { EditableTeamName, EditableTopicTitle } from "@/components/EditableTopicTitle";
 import { ExportStageReportButton } from "@/components/ExportStageReportButton";
@@ -18,6 +19,11 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { STAGE_COUNT, STAGES, getStageSubmissions, migrateStage4, stageCompletion, type ProjectContent, type StageDef } from "@/lib/stages";
 import { getFieldFeedback } from "@/lib/stageFeedback";
 import type { AiFeedback, LastEditor, TeacherFeedback } from "@/lib/workspace";
+import {
+  peersOnField,
+  prunePeers,
+  type PeerPresence,
+} from "@/lib/presence";
 
 type WorkspaceData = {
   student: { id: string; name: string };
@@ -67,14 +73,58 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
   const [completedAt, setCompletedAt] = useState<string | null>(data.project.completedAt);
   const [topicTitle, setTopicTitle] = useState(data.project.title || "주제를 입력해 주세요");
   const [teamName, setTeamName] = useState(data.team.name);
+  const [peers, setPeers] = useState<Record<string, PeerPresence>>({});
 
   const isOwner = data.student.id === data.team.ownerId;
 
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const focusedField = useRef<string | null>(null);
+  const presenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPresenceSent = useRef(0);
+  const saveStateRef = useRef<SaveState>("idle");
   const channelRef = useRef<ReturnType<NonNullable<ReturnType<typeof supabaseBrowser>>["channel"]> | null>(null);
 
+  useEffect(() => {
+    saveStateRef.current = saveState;
+  }, [saveState]);
+
+  const broadcastPresence = useCallback(
+    (stageKey: string, fieldKey: string, cursor?: number) => {
+      const now = Date.now();
+      if (now - lastPresenceSent.current < 120) return;
+      lastPresenceSent.current = now;
+
+      const payload: PeerPresence = {
+        studentId: data.student.id,
+        studentName: data.student.name,
+        stageKey,
+        fieldKey,
+        cursor,
+        updatedAt: now,
+      };
+
+      setPeers((prev) => prunePeers({ ...prev, [data.student.id]: payload }));
+
+      channelRef.current?.send({
+        type: "broadcast",
+        event: "presence",
+        payload,
+      });
+    },
+    [data.student.id, data.student.name]
+  );
+
+  const reportFieldPresence = useCallback(
+    (stageKey: string, fieldKey: string, cursor?: number) => {
+      if (presenceTimer.current) clearTimeout(presenceTimer.current);
+      presenceTimer.current = setTimeout(() => broadcastPresence(stageKey, fieldKey, cursor), 80);
+    },
+    [broadcastPresence]
+  );
+
   const memberCount = members.length;
+
+  const activePeers = useMemo(() => Object.values(peers), [peers]);
 
   const teacherFeedbackIsNew = Boolean(
     teacherFeedback &&
@@ -96,21 +146,41 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
       try {
         const res = await apiFetch<{
           members: WorkspaceData["members"];
-          meta?: { teacherFeedback: TeacherFeedback };
+          project?: WorkspaceData["project"];
+          meta?: { teacherFeedback: TeacherFeedback; lastEditor: LastEditor };
         }>("/api/me");
         if (res.members?.length) setMembers(res.members);
         if (res.meta?.teacherFeedback) setTeacherFeedback(res.meta.teacherFeedback);
+        if (res.meta?.lastEditor) setLastEditor(res.meta.lastEditor);
+
+        if (
+          res.project?.content &&
+          res.project.updatedAt &&
+          res.project.updatedAt > lastUpdatedAt &&
+          saveStateRef.current !== "saving"
+        ) {
+          setContent(migrateStage4(res.project.content));
+          setLastUpdatedAt(res.project.updatedAt);
+          if (res.project.title) setTopicTitle(res.project.title);
+        }
       } catch {
         // ignore background refresh errors
       }
     }
 
-    const timer = setInterval(refreshWorkspace, 45_000);
+    const timer = setInterval(refreshWorkspace, 12_000);
     window.addEventListener("focus", refreshWorkspace);
     return () => {
       clearInterval(timer);
       window.removeEventListener("focus", refreshWorkspace);
     };
+  }, [lastUpdatedAt]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setPeers((prev) => prunePeers(prev));
+    }, 2000);
+    return () => clearInterval(timer);
   }, []);
 
   function ackTeacherFeedback() {
@@ -136,11 +206,20 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
           authorId: string;
         };
         if (authorId === data.student.id) return;
-        if (focusedField.current === `${stageKey}.${fieldKey}`) return;
         setContent((prev) => ({
           ...prev,
           [stageKey]: { ...(prev[stageKey] ?? {}), [fieldKey]: value },
         }));
+      })
+      .on("broadcast", { event: "presence" }, (payload) => {
+        const peer = payload.payload as PeerPresence;
+        if (!peer?.studentId || peer.studentId === data.student.id) return;
+        setPeers((prev) =>
+          prunePeers({
+            ...prev,
+            [peer.studentId]: { ...peer, updatedAt: Date.now() },
+          })
+        );
       })
       .on("broadcast", { event: "meta" }, (payload) => {
         const { topicTitle: t, teamName: n, authorId } = payload.payload as {
@@ -383,6 +462,7 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
             전체 진행 <b className="text-violet-600">{overall}%</b>
           </span>
         </div>
+        <CollaboratorBar peers={activePeers} />
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -543,8 +623,15 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
                   members={members}
                   memberCount={memberCount}
                   onChange={(v) => handleChange(activeStage.key, field.key, v)}
-                  onFocus={() => (focusedField.current = `${activeStage.key}.${field.key}`)}
-                  onBlur={() => (focusedField.current = null)}
+                  onFocus={() => {
+                    focusedField.current = `${activeStage.key}.${field.key}`;
+                    reportFieldPresence(activeStage.key, field.key);
+                  }}
+                  onBlur={() => {
+                    focusedField.current = null;
+                  }}
+                  onCursor={(cursor) => reportFieldPresence(activeStage.key, field.key, cursor)}
+                  fieldPeers={peersOnField(peers, activeStage.key, field.key, data.student.id)}
                   teacherComment={getFieldFeedback(
                     teacherFeedback?.stageFeedback,
                     activeStage.key,

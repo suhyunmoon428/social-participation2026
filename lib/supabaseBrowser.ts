@@ -17,7 +17,7 @@ export function supabaseBrowser(): SupabaseClient | null {
 
   cached = createClient(url, anonKey, {
     auth: { persistSession: false },
-    realtime: { params: { eventsPerSecond: 5 } },
+    realtime: { params: { eventsPerSecond: 20 } },
   });
 
   return cached;

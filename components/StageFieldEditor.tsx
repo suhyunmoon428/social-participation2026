@@ -1,9 +1,12 @@
 "use client";
 
+import { CollabTextarea } from "@/components/CollabTextarea";
 import { ActivityCard } from "@/components/ActivityCard";
 import { AnalysisFormField } from "@/components/AnalysisFormField";
 import { MemberReflectionTable } from "@/components/MemberReflectionTable";
 import { MemberRoleTable } from "@/components/MemberRoleTable";
+import type { PeerPresence } from "@/lib/presence";
+import { colorForStudent } from "@/lib/presence";
 import type { FieldDef } from "@/lib/stages";
 import { fieldFilled, parseAnalysisForm } from "@/lib/stages";
 import { Markdown } from "@/components/Markdown";
@@ -19,6 +22,8 @@ type Props = {
   onChange: (value: string) => void;
   onFocus: () => void;
   onBlur: () => void;
+  onCursor?: (cursor: number) => void;
+  fieldPeers?: PeerPresence[];
   teacherComment?: string;
 };
 
@@ -31,6 +36,8 @@ export function StageFieldEditor({
   onChange,
   onFocus,
   onBlur,
+  onCursor,
+  fieldPeers = [],
   teacherComment,
 }: Props) {
   const done = fieldFilled(field, value, memberCount);
@@ -73,6 +80,21 @@ export function StageFieldEditor({
       </div>
       <p className="mt-1.5 text-[12px] leading-5 text-slate-400">{field.hint}</p>
 
+      {isSpecial && fieldPeers.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {fieldPeers.map((peer) => (
+            <span
+              key={peer.studentId}
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm"
+              style={{ backgroundColor: colorForStudent(peer.studentId) }}
+            >
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/90" />
+              {peer.studentName} 작성 중
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="mt-3">
         {field.type === "memberRoles" ? (
           <MemberRoleTable
@@ -102,17 +124,15 @@ export function StageFieldEditor({
             onBlur={onBlur}
           />
         ) : (
-          <div className="rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-50">
-            <textarea
-              className="np-editor min-h-[130px]"
-              placeholder={field.placeholder ?? "여기에 자유롭게 써 보세요 ✨"}
-              value={value}
-              onFocus={onFocus}
-              onBlur={onBlur}
-              onChange={(e) => onChange(e.target.value)}
-              rows={5}
-            />
-          </div>
+          <CollabTextarea
+            value={value}
+            placeholder={field.placeholder ?? "여기에 자유롭게 써 보세요 ✨"}
+            peers={fieldPeers}
+            onChange={onChange}
+            onFocus={onFocus}
+            onBlur={onBlur}
+            onCursor={onCursor ?? (() => {})}
+          />
         )}
       </div>
 
