@@ -47,7 +47,7 @@ export async function GET(
       const prev = contributionMap.get(edit.student_id) ?? 0;
       contributionMap.set(edit.student_id, prev + Math.max(0, edit.char_delta));
     }
-    const totalChars = [...contributionMap.values()].reduce((a, b) => a + b, 0) || 1;
+    const totalChars = Array.from(contributionMap.values()).reduce((a, b) => a + b, 0) || 1;
 
     const content = (project?.content ?? {}) as ProjectContent;
 

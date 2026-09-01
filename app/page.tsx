@@ -5,6 +5,7 @@ import { LoginForm } from "@/components/LoginForm";
 import { TeamGate } from "@/components/TeamGate";
 import { Workspace } from "@/components/Workspace";
 import { apiFetch } from "@/lib/fetcher";
+import type { WorkspaceMeta } from "@/lib/workspace";
 
 type MeResponse = {
   student: { id: string; name: string; loginKey: string };
@@ -18,11 +19,7 @@ type MeResponse = {
     studentNo?: number;
   }[];
   project: any;
-  meta?: {
-    lastEditor: { name: string; at: string } | null;
-    teacherFeedback: { content: string; stageFeedback?: Record<string, Record<string, string>>; at: string; status: string } | null;
-    aiFeedbacks: { id: number; stage: number; content: string; at: string }[];
-  };
+  meta?: WorkspaceMeta;
 };
 
 export default function HomePage() {
