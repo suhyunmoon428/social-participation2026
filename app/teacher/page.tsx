@@ -36,13 +36,17 @@ export default function TeacherPage() {
       });
       setTeams(data.teams);
       setAuthorized(true);
-    } catch {
+      return true;
+    } catch (error) {
       setAuthorized(false);
+      throw error;
     }
   }, []);
 
   useEffect(() => {
-    loadTeams();
+    loadTeams().catch(() => {
+      // 로그인 전 403은 정상 — 오류 토스트를 띄우지 않는다.
+    });
   }, [loadTeams]);
 
   async function login(event: React.FormEvent) {

@@ -22,6 +22,7 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
     response = await fetch(url, {
       ...init,
       headers,
+      credentials: "include",
     });
   } catch {
     throw new FriendlyError("인터넷 연결이 불안정해요. 연결을 확인해 주세요.");
