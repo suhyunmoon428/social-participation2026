@@ -20,6 +20,10 @@ export const FRIENDLY_MESSAGES = {
   AI_CREDITS: "AI 사용 한도가 부족해요. 선생님께 OpenRouter 크레딧을 확인해 달라고 요청해 주세요.",
   TEACHER_NOT_CONFIGURED:
     "교사 로그인 설정이 아직 안 되어 있어요. Vercel 환경변수에 TEACHER_PASSWORD를 추가해 주세요.",
+  SUPABASE_NOT_CONFIGURED:
+    "데이터베이스 연결이 아직 설정되지 않았어요. Supabase 환경변수를 확인해 주세요.",
+  SESSION_NOT_CONFIGURED:
+    "서버 설정(SESSION_SECRET)이 필요해요. Vercel 환경변수를 확인한 뒤 다시 배포해 주세요.",
   PDF_ONLY: "PDF 파일만 업로드할 수 있어요.",
   FILE_TOO_LARGE: "파일이 너무 커요. 8MB 이하 PDF만 업로드해 주세요.",
   UPLOAD_FAILED: "파일을 업로드하지 못했어요. Supabase Storage 설정을 확인해 주세요.",

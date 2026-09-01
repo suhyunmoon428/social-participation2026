@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { fail, ok } from "@/lib/apiResponse";
+import { getServerEnvIssue } from "@/lib/serverEnv";
 import { setTeacherSession } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -14,12 +15,11 @@ export async function POST(request: Request) {
 
   const hash = process.env.TEACHER_PASSWORD_HASH?.trim();
   const plain = process.env.TEACHER_PASSWORD?.trim();
-  const sessionSecret = process.env.SESSION_SECRET?.trim();
 
   if (!hash && !plain) return fail("TEACHER_NOT_CONFIGURED", 500);
-  if (!sessionSecret || sessionSecret.length < 16) {
-    return fail("UNKNOWN", 500, "SESSION_SECRET_MISSING");
-  }
+
+  const envIssue = getServerEnvIssue();
+  if (envIssue) return fail(envIssue, 500);
 
   let matched = false;
   try {

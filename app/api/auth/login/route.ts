@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { fail, ok } from "@/lib/apiResponse";
+import { getServerEnvIssue } from "@/lib/serverEnv";
 import { setStudentSession } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -49,6 +50,9 @@ export async function POST(request: Request) {
   if (!validateStudentIdentity(grade, classNo, studentNo)) {
     return fail("INVALID_STUDENT_INFO", 400);
   }
+
+  const envIssue = getServerEnvIssue();
+  if (envIssue) return fail(envIssue, 500);
 
   const loginKey = `${grade}-${classNo}-${studentNo}-${name}`;
   const db = supabaseAdmin();
