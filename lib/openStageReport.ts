@@ -2,6 +2,45 @@ import { buildStageReportHtml, type StageReportOptions } from "@/lib/stageReport
 
 const STORAGE_KEY = "stageReportPayload";
 
+function printHtmlInHiddenFrame(html: string): boolean {
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("title", "사회참여활동 보고서");
+  iframe.setAttribute(
+    "style",
+    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none"
+  );
+  document.body.appendChild(iframe);
+
+  const win = iframe.contentWindow;
+  const doc = win?.document;
+  if (!win || !doc) {
+    iframe.remove();
+    return false;
+  }
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  let printed = false;
+  const triggerPrint = () => {
+    if (printed) return;
+    printed = true;
+    try {
+      win.focus();
+      win.print();
+    } catch {
+      printed = false;
+      return;
+    }
+    window.setTimeout(() => iframe.remove(), 2000);
+  };
+
+  iframe.onload = () => window.setTimeout(triggerPrint, 200);
+  window.setTimeout(triggerPrint, 800);
+  return true;
+}
+
 export function openStageReport(options: StageReportOptions): boolean {
   if (typeof window === "undefined") return false;
 
@@ -12,12 +51,11 @@ export function openStageReport(options: StageReportOptions): boolean {
     return false;
   }
 
-  const win = window.open("/print/report", "_blank", "noopener,noreferrer");
-  if (!win) {
-    alert("팝업이 차단되었어요. 브라우저에서 팝업을 허용한 뒤 다시 시도해 주세요.");
-    return false;
-  }
+  const html = buildStageReportHtml(options);
+  if (printHtmlInHiddenFrame(html)) return true;
 
+  // iframe 인쇄가 막히면 팝업 없이 같은 탭에서 인쇄 페이지로 이동
+  window.location.assign("/print/report");
   return true;
 }
 
