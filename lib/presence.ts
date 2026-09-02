@@ -3,11 +3,12 @@ export type PeerPresence = {
   studentName: string;
   stageKey: string;
   fieldKey: string;
+  fieldLabel?: string;
   cursor?: number;
   updatedAt: number;
 };
 
-export const PRESENCE_TTL_MS = 8000;
+export const PRESENCE_TTL_MS = 12000;
 
 const PEER_COLORS = ["#7c3aed", "#db2777", "#0891b2", "#ca8a04", "#16a34a", "#ea580c"];
 

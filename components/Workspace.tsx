@@ -84,6 +84,7 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
   const focusedField = useRef<string | null>(null);
   const presenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPresenceSent = useRef(0);
+  const lastCursorRef = useRef(0);
   const saveStateRef = useRef<SaveState>("idle");
   const channelRef = useRef<ReturnType<NonNullable<ReturnType<typeof supabaseBrowser>>["channel"]> | null>(null);
 
@@ -92,17 +93,23 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
   }, [saveState]);
 
   const broadcastPresence = useCallback(
-    (stageKey: string, fieldKey: string, cursor?: number) => {
+    (stageKey: string, fieldKey: string, cursor?: number, force = false) => {
       const now = Date.now();
-      if (now - lastPresenceSent.current < 120) return;
+      if (!force && now - lastPresenceSent.current < 60) return;
       lastPresenceSent.current = now;
+
+      if (cursor !== undefined) lastCursorRef.current = cursor;
+
+      const stage = STAGES.find((s) => s.key === stageKey);
+      const field = stage?.fields.find((f) => f.key === fieldKey);
 
       const payload: PeerPresence = {
         studentId: data.student.id,
         studentName: data.student.name,
         stageKey,
         fieldKey,
-        cursor,
+        fieldLabel: field?.label,
+        cursor: cursor ?? lastCursorRef.current,
         updatedAt: now,
       };
 
@@ -118,9 +125,13 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
   );
 
   const reportFieldPresence = useCallback(
-    (stageKey: string, fieldKey: string, cursor?: number) => {
+    (stageKey: string, fieldKey: string, cursor?: number, force = false) => {
+      if (force) {
+        broadcastPresence(stageKey, fieldKey, cursor, true);
+        return;
+      }
       if (presenceTimer.current) clearTimeout(presenceTimer.current);
-      presenceTimer.current = setTimeout(() => broadcastPresence(stageKey, fieldKey, cursor), 80);
+      presenceTimer.current = setTimeout(() => broadcastPresence(stageKey, fieldKey, cursor), 30);
     },
     [broadcastPresence]
   );
@@ -185,6 +196,17 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
     }, 2000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const focused = focusedField.current;
+      if (!focused) return;
+      const [stageKey, fieldKey] = focused.split(".");
+      if (!stageKey || !fieldKey) return;
+      broadcastPresence(stageKey, fieldKey, lastCursorRef.current, true);
+    }, 1500);
+    return () => clearInterval(timer);
+  }, [broadcastPresence]);
 
   function ackTeacherFeedback() {
     if (!teacherFeedback?.at) return;
@@ -486,7 +508,7 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
         )}
         {realtimeStatus === "connected" && activePeers.length === 0 && (
           <div className="border-t border-emerald-100 bg-emerald-50/80 px-5 py-1.5 text-[10px] text-emerald-800">
-            🟢 실시간 협업 연결됨 — 팀원이 같은 항목을 열면 이름과 커서가 보여요.
+            🟢 실시간 협업 연결됨 — 같은 항목을 열면 구글 문서처럼 이름·커서가 보여요.
           </div>
         )}
       </header>
@@ -651,7 +673,8 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
                   onChange={(v) => handleChange(activeStage.key, field.key, v)}
                   onFocus={() => {
                     focusedField.current = `${activeStage.key}.${field.key}`;
-                    reportFieldPresence(activeStage.key, field.key);
+                    lastCursorRef.current = 0;
+                    reportFieldPresence(activeStage.key, field.key, 0, true);
                   }}
                   onBlur={() => {
                     focusedField.current = null;

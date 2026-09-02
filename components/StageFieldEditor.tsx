@@ -51,7 +51,20 @@ export function StageFieldEditor({
     field.type === "analysisFormPdf" ? parseAnalysisForm(value).notes.trim().length : value.trim().length;
 
   return (
-    <section className="np-card">
+    <section
+      className={[
+        "np-card transition-shadow",
+        fieldPeers.length > 0 ? "ring-2 ring-offset-1" : "",
+      ].join(" ")}
+      style={
+        fieldPeers.length > 0
+          ? {
+              boxShadow: `0 0 0 1px ${colorForStudent(fieldPeers[0]!.studentId)}55`,
+              borderColor: colorForStudent(fieldPeers[0]!.studentId),
+            }
+          : undefined
+      }
+    >
       <div className="flex items-start justify-between gap-3">
         <h2 className="flex items-center gap-2 text-[16px] font-bold text-slate-800">
           <span>{field.emoji}</span>
@@ -89,7 +102,8 @@ export function StageFieldEditor({
               style={{ backgroundColor: colorForStudent(peer.studentId) }}
             >
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/90" />
-              {peer.studentName} 작성 중
+              {peer.studentName}
+              {peer.fieldLabel ? ` · ${peer.fieldLabel}` : ""}
             </span>
           ))}
         </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
-import { caretLine, colorForStudent, type PeerPresence } from "@/lib/presence";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { RemoteCaret } from "@/components/RemoteCaret";
+import { colorForStudent, type PeerPresence } from "@/lib/presence";
 
 type Props = {
   value: string;
@@ -14,9 +15,6 @@ type Props = {
   onCursor: (cursor: number) => void;
 };
 
-const LINE_HEIGHT = 24;
-const PADDING_Y = 12;
-
 export function CollabTextarea({
   value,
   placeholder,
@@ -28,32 +26,46 @@ export function CollabTextarea({
   onCursor,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const scrollRaf = useRef<number | null>(null);
+  const [textareaEl, setTextareaEl] = useState<HTMLTextAreaElement | null>(null);
+  const [layoutVersion, setLayoutVersion] = useState(0);
+
+  const bumpLayout = useCallback(() => {
+    setLayoutVersion((v) => v + 1);
+  }, []);
 
   const reportCursor = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
     onCursor(el.selectionStart ?? 0);
-  }, [onCursor]);
+    bumpLayout();
+  }, [onCursor, bumpLayout]);
 
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
 
-    const onScroll = () => {
-      if (scrollRaf.current) cancelAnimationFrame(scrollRaf.current);
-      scrollRaf.current = requestAnimationFrame(reportCursor);
-    };
-
+    const onScroll = () => bumpLayout();
     el.addEventListener("scroll", onScroll);
+    window.addEventListener("resize", onScroll);
     return () => {
       el.removeEventListener("scroll", onScroll);
-      if (scrollRaf.current) cancelAnimationFrame(scrollRaf.current);
+      window.removeEventListener("resize", onScroll);
     };
-  }, [reportCursor]);
+  }, [bumpLayout]);
+
+  useEffect(() => {
+    bumpLayout();
+  }, [value, peers, bumpLayout]);
 
   return (
-    <div className="relative rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-50">
+    <div
+      className={[
+        "relative rounded-xl border bg-slate-50/50 px-4 py-3 transition-shadow",
+        peers.length > 0
+          ? "border-violet-200 ring-2 ring-violet-100"
+          : "border-slate-100 focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-50",
+      ].join(" ")}
+    >
       {peers.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
           {peers.map((peer) => (
@@ -63,16 +75,21 @@ export function CollabTextarea({
               style={{ backgroundColor: colorForStudent(peer.studentId) }}
             >
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/90" />
-              {peer.studentName} 작성 중
+              {peer.studentName}
+              {peer.fieldLabel ? ` · ${peer.fieldLabel}` : ""}
             </span>
           ))}
         </div>
       )}
 
-      <div className="relative">
+      <div className="relative min-h-[130px]">
         <textarea
-          ref={textareaRef}
-          className="np-editor relative z-10 min-h-[130px] bg-transparent"
+          ref={(el) => {
+            textareaRef.current = el;
+            setTextareaEl(el);
+            if (el) bumpLayout();
+          }}
+          className="np-editor relative z-10 min-h-[130px] w-full bg-transparent"
           placeholder={placeholder}
           value={value}
           rows={rows}
@@ -86,40 +103,22 @@ export function CollabTextarea({
             reportCursor();
           }}
           onKeyUp={reportCursor}
+          onKeyDown={reportCursor}
           onClick={reportCursor}
           onSelect={reportCursor}
+          onInput={reportCursor}
         />
 
-        <div
-          className="pointer-events-none absolute inset-0 z-20 overflow-hidden"
-          aria-hidden
-        >
-          {peers.map((peer) => {
-            if (peer.cursor === undefined) return null;
-            const line = caretLine(value, peer.cursor);
-            const scrollTop = textareaRef.current?.scrollTop ?? 0;
-            const top = PADDING_Y + line * LINE_HEIGHT - scrollTop;
-            if (top < -8 || top > 220) return null;
-
-            return (
-              <div
-                key={peer.studentId}
-                className="absolute left-0 flex items-center gap-1"
-                style={{ top, transform: "translateY(-2px)" }}
-              >
-                <span
-                  className="h-4 w-0.5 rounded-full"
-                  style={{ backgroundColor: colorForStudent(peer.studentId) }}
-                />
-                <span
-                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-white shadow"
-                  style={{ backgroundColor: colorForStudent(peer.studentId) }}
-                >
-                  {peer.studentName}
-                </span>
-              </div>
-            );
-          })}
+        <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden" aria-hidden>
+          {peers.map((peer) => (
+            <RemoteCaret
+              key={peer.studentId}
+              peer={peer}
+              textarea={textareaEl}
+              value={value}
+              version={layoutVersion}
+            />
+          ))}
         </div>
       </div>
     </div>
