@@ -9,6 +9,7 @@ type Props = {
   placeholder?: string;
   rows?: number;
   peers: PeerPresence[];
+  selfId?: string;
   onChange: (value: string) => void;
   onFocus: () => void;
   onBlur: () => void;
@@ -20,6 +21,7 @@ export function CollabTextarea({
   placeholder,
   rows = 5,
   peers,
+  selfId,
   onChange,
   onFocus,
   onBlur,
@@ -85,7 +87,6 @@ export function CollabTextarea({
             >
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/90" />
               {peer.studentName}
-              {peer.fieldLabel ? ` · ${peer.fieldLabel}` : ""}
             </span>
           ))}
         </div>
@@ -122,6 +123,11 @@ export function CollabTextarea({
               textarea={textareaEl}
               value={value}
               version={layoutVersion}
+              cursorOverride={
+                selfId === peer.studentId
+                  ? (textareaRef.current?.selectionStart ?? peer.cursor)
+                  : undefined
+              }
             />
           ))}
         </div>

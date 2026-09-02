@@ -9,15 +9,17 @@ export function RemoteCaret({
   textarea,
   value,
   version,
+  cursorOverride,
 }: {
   peer: PeerPresence;
   textarea: HTMLTextAreaElement | null;
   value: string;
   version: number;
+  cursorOverride?: number;
 }) {
   const [point, setPoint] = useState<{ top: number; left: number; height: number } | null>(null);
   const color = colorForStudent(peer.studentId);
-  const cursor = peer.cursor ?? value.length;
+  const cursor = cursorOverride ?? peer.cursor ?? value.length;
 
   useLayoutEffect(() => {
     if (!textarea) {

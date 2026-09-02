@@ -149,9 +149,6 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
   const broadcastPresence = useCallback(
     (stageKey: string, fieldKey: string, cursor?: number, force = false) => {
       const now = Date.now();
-      if (!force && now - lastPresenceSent.current < 60) return;
-      lastPresenceSent.current = now;
-
       if (cursor !== undefined) lastCursorRef.current = cursor;
 
       const stage = STAGES.find((s) => s.key === stageKey);
@@ -168,6 +165,9 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
       };
 
       setPeers((prev) => prunePeers({ ...prev, [data.student.id]: payload }));
+
+      if (!force && now - lastPresenceSent.current < 60) return;
+      lastPresenceSent.current = now;
 
       safeBroadcast("presence", payload);
     },
@@ -805,13 +805,9 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
                     focusedField.current = null;
                   }}
                   onCursor={(cursor) => reportFieldPresence(activeStage.key, field.key, cursor)}
-                  fieldPeers={peersOnField(peers, activeStage.key, field.key, data.student.id)}
-                  fieldTypists={typistsForField(
-                    fieldTypists,
-                    activeStage.key,
-                    field.key,
-                    data.student.id
-                  )}
+                  fieldPeers={peersOnField(peers, activeStage.key, field.key)}
+                  fieldTypists={typistsForField(fieldTypists, activeStage.key, field.key)}
+                  selfId={data.student.id}
                   teacherComment={getFieldFeedback(
                     teacherFeedback?.stageFeedback,
                     activeStage.key,

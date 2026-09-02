@@ -26,6 +26,7 @@ type Props = {
   onCursor?: (cursor: number) => void;
   fieldPeers?: PeerPresence[];
   fieldTypists?: FieldTypist[];
+  selfId?: string;
   teacherComment?: string;
 };
 
@@ -41,6 +42,7 @@ export function StageFieldEditor({
   onCursor,
   fieldPeers = [],
   fieldTypists = [],
+  selfId,
   teacherComment,
 }: Props) {
   const done = fieldFilled(field, value, memberCount);
@@ -109,7 +111,6 @@ export function StageFieldEditor({
             >
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/90" />
               {peer.studentName}
-              {peer.fieldLabel ? ` · ${peer.fieldLabel}` : ""}
             </span>
           ))}
         </div>
@@ -148,6 +149,7 @@ export function StageFieldEditor({
             value={value}
             placeholder={field.placeholder ?? "여기에 자유롭게 써 보세요 ✨"}
             peers={fieldPeers}
+            selfId={selfId}
             onChange={onChange}
             onFocus={onFocus}
             onBlur={onBlur}
