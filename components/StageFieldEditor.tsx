@@ -5,7 +5,8 @@ import { ActivityCard } from "@/components/ActivityCard";
 import { AnalysisFormField } from "@/components/AnalysisFormField";
 import { MemberReflectionTable } from "@/components/MemberReflectionTable";
 import { MemberRoleTable } from "@/components/MemberRoleTable";
-import type { PeerPresence } from "@/lib/presence";
+import { TypingIndicator } from "@/components/TypingIndicator";
+import type { FieldTypist, PeerPresence } from "@/lib/presence";
 import { colorForStudent } from "@/lib/presence";
 import type { FieldDef } from "@/lib/stages";
 import { fieldFilled, parseAnalysisForm } from "@/lib/stages";
@@ -24,6 +25,7 @@ type Props = {
   onBlur: () => void;
   onCursor?: (cursor: number) => void;
   fieldPeers?: PeerPresence[];
+  fieldTypists?: FieldTypist[];
   teacherComment?: string;
 };
 
@@ -38,6 +40,7 @@ export function StageFieldEditor({
   onBlur,
   onCursor,
   fieldPeers = [],
+  fieldTypists = [],
   teacherComment,
 }: Props) {
   const done = fieldFilled(field, value, memberCount);
@@ -71,14 +74,17 @@ export function StageFieldEditor({
           {field.label}
         </h2>
         {!isSpecial && (
-          <span
-            className={[
-              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
-              done ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400",
-            ].join(" ")}
-          >
-            {charCount}자{done ? " ✓" : ""}
-          </span>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <TypingIndicator typists={fieldTypists} />
+            <span
+              className={[
+                "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                done ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400",
+              ].join(" ")}
+            >
+              {charCount}자{done ? " ✓" : ""}
+            </span>
+          </div>
         )}
         {isSpecial && (
           <span

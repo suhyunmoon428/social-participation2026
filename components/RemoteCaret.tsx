@@ -31,7 +31,7 @@ export function RemoteCaret({
     }
   }, [textarea, value, cursor, version]);
 
-  if (!point) return null;
+  if (!point || !textarea) return null;
 
   const { top, left, height } = point;
   if (top < -height || top > textarea.clientHeight + height) return null;

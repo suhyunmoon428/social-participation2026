@@ -90,26 +90,16 @@ export function EditableTopicTitle({
 
 type TeamNameProps = {
   value: string;
-  isOwner: boolean;
   onChange: (value: string) => void;
   onSave?: (value: string) => Promise<void>;
 };
 
-export function EditableTeamName({ value, isOwner, onChange, onSave }: TeamNameProps) {
+export function EditableTeamName({ value, onChange, onSave }: TeamNameProps) {
   const { show } = useToast();
   const [local, setLocal] = useState(value);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => setLocal(value), [value]);
-
-  if (!isOwner) {
-    return (
-      <div className="min-w-0">
-        <span className="mb-0.5 block text-[10px] font-semibold text-slate-500">🏠 팀명</span>
-        <p className="truncate text-sm font-bold text-slate-800">{value || "팀명 없음"}</p>
-      </div>
-    );
-  }
 
   return (
     <label className="block min-w-0">
@@ -144,7 +134,7 @@ export function EditableTeamName({ value, isOwner, onChange, onSave }: TeamNameP
           }
         }}
       />
-      <span className="mt-0.5 block text-[10px] text-slate-400">👑 조장만 수정할 수 있어요</span>
+      <span className="mt-0.5 block text-[10px] text-slate-400">팀원 모두 수정할 수 있어요</span>
     </label>
   );
 }

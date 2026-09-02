@@ -25,13 +25,22 @@ export function CollabTextarea({
   onBlur,
   onCursor,
 }: Props) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [textareaEl, setTextareaEl] = useState<HTMLTextAreaElement | null>(null);
   const [layoutVersion, setLayoutVersion] = useState(0);
 
   const bumpLayout = useCallback(() => {
     setLayoutVersion((v) => v + 1);
   }, []);
+
+  const setTextareaRef = useCallback(
+    (el: HTMLTextAreaElement | null) => {
+      textareaRef.current = el;
+      setTextareaEl(el);
+      if (el) bumpLayout();
+    },
+    [bumpLayout]
+  );
 
   const reportCursor = useCallback(() => {
     const el = textareaRef.current;
@@ -84,11 +93,7 @@ export function CollabTextarea({
 
       <div className="relative min-h-[130px]">
         <textarea
-          ref={(el) => {
-            textareaRef.current = el;
-            setTextareaEl(el);
-            if (el) bumpLayout();
-          }}
+          ref={setTextareaRef}
           className="np-editor relative z-10 min-h-[130px] w-full bg-transparent"
           placeholder={placeholder}
           value={value}

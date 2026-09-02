@@ -5,6 +5,7 @@ import { CollaboratorBar } from "@/components/CollaboratorBar";
 import { FeedbackPanel } from "@/components/FeedbackPanel";
 import { EditableTeamName, EditableTopicTitle } from "@/components/EditableTopicTitle";
 import { ExportStageReportButton } from "@/components/ExportStageReportButton";
+import { OnlineTeamMembers } from "@/components/OnlineTeamMembers";
 import { StageFieldEditor } from "@/components/StageFieldEditor";
 import { useToast } from "@/components/Toast";
 import {
@@ -20,8 +21,14 @@ import { STAGE_COUNT, STAGES, getStageSubmissions, migrateStage4, stageCompletio
 import { getFieldFeedback } from "@/lib/stageFeedback";
 import type { AiFeedback, LastEditor, TeacherFeedback } from "@/lib/workspace";
 import {
+  markFieldTypist,
   peersOnField,
+  pruneFieldTypists,
+  pruneOnline,
   prunePeers,
+  typistsForField,
+  type FieldTypist,
+  type OnlineMember,
   type PeerPresence,
 } from "@/lib/presence";
 
@@ -74,11 +81,17 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
   const [topicTitle, setTopicTitle] = useState(data.project.title || "주제를 입력해 주세요");
   const [teamName, setTeamName] = useState(data.team.name);
   const [peers, setPeers] = useState<Record<string, PeerPresence>>({});
+  const [onlineMembers, setOnlineMembers] = useState<Record<string, OnlineMember>>(() => ({
+    [data.student.id]: {
+      studentId: data.student.id,
+      studentName: data.student.name,
+      updatedAt: Date.now(),
+    },
+  }));
+  const [fieldTypists, setFieldTypists] = useState<Record<string, FieldTypist>>({});
   const [realtimeStatus, setRealtimeStatus] = useState<
     "disabled" | "connecting" | "connected" | "error"
   >(() => (isRealtimeConfigured() ? "connecting" : "disabled"));
-
-  const isOwner = data.student.id === data.team.ownerId;
 
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const focusedField = useRef<string | null>(null);
@@ -86,7 +99,48 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
   const lastPresenceSent = useRef(0);
   const lastCursorRef = useRef(0);
   const saveStateRef = useRef<SaveState>("idle");
+  const channelReadyRef = useRef(false);
   const channelRef = useRef<ReturnType<NonNullable<ReturnType<typeof supabaseBrowser>>["channel"]> | null>(null);
+
+  const safeBroadcast = useCallback((event: string, payload: Record<string, unknown>) => {
+    if (!channelRef.current || !channelReadyRef.current) return;
+    void channelRef.current.send({ type: "broadcast", event, payload });
+  }, []);
+
+  const broadcastOnline = useCallback(() => {
+    const now = Date.now();
+    setOnlineMembers((prev) =>
+      pruneOnline({
+        ...prev,
+        [data.student.id]: {
+          studentId: data.student.id,
+          studentName: data.student.name,
+          updatedAt: now,
+        },
+      })
+    );
+    safeBroadcast("online", {
+      studentId: data.student.id,
+      studentName: data.student.name,
+      at: now,
+    });
+  }, [data.student.id, data.student.name, safeBroadcast]);
+
+  const markTyping = useCallback(
+    (stageKey: string, fieldKey: string, fieldLabel?: string) => {
+      setFieldTypists((prev) =>
+        markFieldTypist(prev, stageKey, fieldKey, data.student.id, data.student.name, fieldLabel)
+      );
+      safeBroadcast("typing", {
+        stageKey,
+        fieldKey,
+        studentId: data.student.id,
+        studentName: data.student.name,
+        fieldLabel,
+      });
+    },
+    [data.student.id, data.student.name, safeBroadcast]
+  );
 
   useEffect(() => {
     saveStateRef.current = saveState;
@@ -115,13 +169,9 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
 
       setPeers((prev) => prunePeers({ ...prev, [data.student.id]: payload }));
 
-      channelRef.current?.send({
-        type: "broadcast",
-        event: "presence",
-        payload,
-      });
+      safeBroadcast("presence", payload);
     },
-    [data.student.id, data.student.name]
+    [data.student.id, data.student.name, safeBroadcast]
   );
 
   const reportFieldPresence = useCallback(
@@ -139,6 +189,14 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
   const memberCount = members.length;
 
   const activePeers = useMemo(() => Object.values(peers), [peers]);
+
+  const activeTypists = useMemo(() => Object.values(fieldTypists), [fieldTypists]);
+
+  const onlineCount = useMemo(() => {
+    const now = Date.now();
+    const pruned = pruneOnline(onlineMembers, now);
+    return Object.keys(pruned).length;
+  }, [onlineMembers]);
 
   const teacherFeedbackIsNew = Boolean(
     teacherFeedback &&
@@ -193,6 +251,8 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
   useEffect(() => {
     const timer = setInterval(() => {
       setPeers((prev) => prunePeers(prev));
+      setOnlineMembers((prev) => pruneOnline(prev));
+      setFieldTypists((prev) => pruneFieldTypists(prev));
     }, 2000);
     return () => clearInterval(timer);
   }, []);
@@ -227,17 +287,26 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
 
     channel
       .on("broadcast", { event: "field" }, (payload) => {
-        const { stageKey, fieldKey, value, authorId } = payload.payload as {
+        const { stageKey, fieldKey, value, authorId, authorName } = payload.payload as {
           stageKey: string;
           fieldKey: string;
           value: string;
           authorId: string;
+          authorName?: string;
         };
-        if (authorId === data.student.id) return;
-        setContent((prev) => ({
-          ...prev,
-          [stageKey]: { ...(prev[stageKey] ?? {}), [fieldKey]: value },
-        }));
+        if (authorId !== data.student.id) {
+          const stage = STAGES.find((s) => s.key === stageKey);
+          const field = stage?.fields.find((f) => f.key === fieldKey);
+          if (authorName) {
+            setFieldTypists((prev) =>
+              markFieldTypist(prev, stageKey, fieldKey, authorId, authorName, field?.label)
+            );
+          }
+          setContent((prev) => ({
+            ...prev,
+            [stageKey]: { ...(prev[stageKey] ?? {}), [fieldKey]: value },
+          }));
+        }
       })
       .on("broadcast", { event: "presence" }, (payload) => {
         const peer = payload.payload as PeerPresence;
@@ -246,6 +315,37 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
           prunePeers({
             ...prev,
             [peer.studentId]: { ...peer, updatedAt: Date.now() },
+          })
+        );
+      })
+      .on("broadcast", { event: "typing" }, (payload) => {
+        const { stageKey, fieldKey, studentId, studentName, fieldLabel } = payload.payload as {
+          stageKey: string;
+          fieldKey: string;
+          studentId: string;
+          studentName: string;
+          fieldLabel?: string;
+        };
+        if (!studentId || studentId === data.student.id) return;
+        setFieldTypists((prev) =>
+          markFieldTypist(prev, stageKey, fieldKey, studentId, studentName, fieldLabel)
+        );
+      })
+      .on("broadcast", { event: "online" }, (payload) => {
+        const { studentId, studentName, at } = payload.payload as {
+          studentId: string;
+          studentName: string;
+          at?: number;
+        };
+        if (!studentId || studentId === data.student.id) return;
+        setOnlineMembers((prev) =>
+          pruneOnline({
+            ...prev,
+            [studentId]: {
+              studentId,
+              studentName,
+              updatedAt: at ?? Date.now(),
+            },
           })
         );
       })
@@ -260,17 +360,42 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
         if (n) setTeamName(n);
       })
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") setRealtimeStatus("connected");
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setRealtimeStatus("error");
+        if (status === "SUBSCRIBED") {
+          channelReadyRef.current = true;
+          setRealtimeStatus("connected");
+          broadcastOnline();
+          const focused = focusedField.current;
+          if (focused) {
+            const [stageKey, fieldKey] = focused.split(".");
+            if (stageKey && fieldKey) {
+              broadcastPresence(stageKey, fieldKey, lastCursorRef.current, true);
+            }
+          }
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          channelReadyRef.current = false;
+          setRealtimeStatus("error");
+        }
+        if (status === "CLOSED") {
+          channelReadyRef.current = false;
+        }
       });
 
     channelRef.current = channel;
     return () => {
+      channelReadyRef.current = false;
       client.removeChannel(channel);
       channelRef.current = null;
       setRealtimeStatus(isRealtimeConfigured() ? "connecting" : "disabled");
     };
-  }, [data.team.id, data.student.id]);
+  }, [data.team.id, data.student.id, broadcastOnline, broadcastPresence]);
+
+  useEffect(() => {
+    if (realtimeStatus !== "connected") return;
+    broadcastOnline();
+    const timer = setInterval(broadcastOnline, 3000);
+    return () => clearInterval(timer);
+  }, [realtimeStatus, broadcastOnline]);
 
   const persist = useCallback(
     async (stageKey: string, fieldKey: string, value: string) => {
@@ -301,17 +426,23 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
         [stageKey]: { ...(prev[stageKey] ?? {}), [fieldKey]: value },
       }));
 
-      channelRef.current?.send({
-        type: "broadcast",
-        event: "field",
-        payload: { stageKey, fieldKey, value, authorId: data.student.id },
+      const stage = STAGES.find((s) => s.key === stageKey);
+      const field = stage?.fields.find((f) => f.key === fieldKey);
+
+      safeBroadcast("field", {
+        stageKey,
+        fieldKey,
+        value,
+        authorId: data.student.id,
+        authorName: data.student.name,
       });
+      markTyping(stageKey, fieldKey, field?.label);
 
       const timerKey = `${stageKey}.${fieldKey}`;
       clearTimeout(timers.current[timerKey]);
       timers.current[timerKey] = setTimeout(() => persist(stageKey, fieldKey, value), 800);
     },
-    [data.student.id, persist]
+    [data.student.id, data.student.name, markTyping, persist, safeBroadcast]
   );
 
   useEffect(() => {
@@ -352,13 +483,9 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
         method: "POST",
         body: JSON.stringify({ title }),
       });
-      channelRef.current?.send({
-        type: "broadcast",
-        event: "meta",
-        payload: { topicTitle: title, authorId: data.student.id },
-      });
+      safeBroadcast("meta", { topicTitle: title, authorId: data.student.id });
     },
-    [data.student.id]
+    [data.student.id, safeBroadcast]
   );
 
   const saveTeamName = useCallback(
@@ -367,14 +494,10 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
         method: "POST",
         body: JSON.stringify({ name }),
       });
-      channelRef.current?.send({
-        type: "broadcast",
-        event: "meta",
-        payload: { teamName: name, authorId: data.student.id },
-      });
+      safeBroadcast("meta", { teamName: name, authorId: data.student.id });
       show("팀명을 저장했어요.", "success");
     },
-    [data.student.id, show]
+    [data.student.id, safeBroadcast, show]
   );
 
   async function submitStage() {
@@ -494,7 +617,7 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
             전체 진행 <b className="text-violet-600">{overall}%</b>
           </span>
         </div>
-        <CollaboratorBar peers={activePeers} />
+        <CollaboratorBar peers={activePeers} typists={activeTypists} />
         {realtimeStatus === "disabled" && (
           <div className="border-t border-amber-200 bg-amber-50 px-5 py-2 text-[11px] leading-5 text-amber-900">
             ⚠️ 실시간 협업이 꺼져 있어요. Vercel에{" "}
@@ -506,9 +629,9 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
             ⚠️ 실시간 연결에 실패했어요. Supabase URL·anon key가 맞는지 확인해 주세요.
           </div>
         )}
-        {realtimeStatus === "connected" && activePeers.length === 0 && (
+        {realtimeStatus === "connected" && onlineCount <= 1 && (
           <div className="border-t border-emerald-100 bg-emerald-50/80 px-5 py-1.5 text-[10px] text-emerald-800">
-            🟢 실시간 협업 연결됨 — 같은 항목을 열면 구글 문서처럼 이름·커서가 보여요.
+            🟢 실시간 협업 연결됨 — 팀원이 접속하면 왼쪽에 이름이 보이고, 같은 칸을 열면 커서가 표시돼요.
           </div>
         )}
       </header>
@@ -516,12 +639,7 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
       <div className="flex min-h-0 flex-1">
         <nav className="flex w-[220px] shrink-0 flex-col border-r border-white/60 bg-white/50 backdrop-blur-sm">
           <div className="border-b border-slate-100 px-4 py-3 space-y-2">
-            <EditableTeamName
-              value={teamName}
-              isOwner={isOwner}
-              onChange={setTeamName}
-              onSave={isOwner ? saveTeamName : undefined}
-            />
+            <EditableTeamName value={teamName} onChange={setTeamName} onSave={saveTeamName} />
             <button
               type="button"
               className="mt-1 flex items-center gap-1 text-[11px] text-slate-400 hover:text-violet-600"
@@ -533,6 +651,12 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
               🔑 <span className="font-mono tracking-widest">{data.team.joinCode}</span>
             </button>
           </div>
+
+          <OnlineTeamMembers
+            members={members}
+            online={onlineMembers}
+            selfId={data.student.id}
+          />
 
           <div className="flex-1 overflow-y-auto px-2 py-3">
             <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -675,12 +799,19 @@ export function Workspace({ data, onLogout }: { data: WorkspaceData; onLogout: (
                     focusedField.current = `${activeStage.key}.${field.key}`;
                     lastCursorRef.current = 0;
                     reportFieldPresence(activeStage.key, field.key, 0, true);
+                    markTyping(activeStage.key, field.key, field.label);
                   }}
                   onBlur={() => {
                     focusedField.current = null;
                   }}
                   onCursor={(cursor) => reportFieldPresence(activeStage.key, field.key, cursor)}
                   fieldPeers={peersOnField(peers, activeStage.key, field.key, data.student.id)}
+                  fieldTypists={typistsForField(
+                    fieldTypists,
+                    activeStage.key,
+                    field.key,
+                    data.student.id
+                  )}
                   teacherComment={getFieldFeedback(
                     teacherFeedback?.stageFeedback,
                     activeStage.key,

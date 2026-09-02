@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
-/** 팀명(teams.name) 수정 — 조장(owner)만 가능 */
+/** 팀명(teams.name) 수정 — 팀원 누구나 가능 */
 export async function POST(request: Request) {
   const session = getStudentSession();
   if (!session) return fail("UNAUTHENTICATED", 401);
@@ -28,11 +28,6 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (!membership) return fail("FORBIDDEN", 403);
-
-    const ownerId = (membership as any).teams?.owner_id;
-    if (membership.role !== "owner" && ownerId !== session.id) {
-      return fail("FORBIDDEN", 403);
-    }
 
     const { data, error } = await db
       .from("teams")
