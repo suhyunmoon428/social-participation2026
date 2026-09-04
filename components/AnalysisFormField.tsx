@@ -55,19 +55,22 @@ export function AnalysisFormField({ value, stageKey, fieldKey, onChange, onFocus
         }),
       });
 
-      // Vercel을 거치지 않고 Supabase Storage로 직접 업로드 (서명 URL)
+      // Supabase signed upload는 raw body가 아니라 FormData(PUT)를 기대한다.
+      const body = new FormData();
+      body.append("cacheControl", "3600");
+      body.append("", file);
+
       const uploadRes = await fetch(signed.signedUrl, {
         method: "PUT",
         headers: {
-          "Content-Type": file.type || "application/pdf",
           "x-upsert": "true",
         },
-        body: file,
+        body,
       });
 
       if (!uploadRes.ok) {
         const detail = await uploadRes.text().catch(() => "");
-        console.error("[pdf-upload]", uploadRes.status, detail);
+        console.error("[pdf-upload]", uploadRes.status, detail.slice(0, 300));
         throw new Error("파일을 업로드하지 못했어요. 잠시 후 다시 시도해 주세요.");
       }
 

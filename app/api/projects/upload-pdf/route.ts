@@ -100,7 +100,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await db.storage
       .from(ATTACHMENT_BUCKET)
-      .createSignedUploadUrl(storagePath);
+      .createSignedUploadUrl(storagePath, { upsert: true });
 
     if (error || !data?.signedUrl || !data.token) {
       console.error("[upload-pdf] signed url", error);
