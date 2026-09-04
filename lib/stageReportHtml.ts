@@ -1,6 +1,5 @@
 import {
   parseActivityCard,
-  parseAnalysisForm,
   parseMemberRoles,
   type ProjectContent,
   type StageDef,
@@ -106,14 +105,7 @@ function stage1Body(values: Record<string, string>, members: ReportMember[]): st
     </section>
     ${sectionHtml(
       "◯ 문제 분석 양식 준비",
-      (() => {
-        const form = parseAnalysisForm(values.analysisForms);
-        const notes = form.notes ? nl2br(form.notes) : "";
-        const pdfLine = form.pdf
-          ? `<p>첨부 PDF: <strong>${esc(form.pdf.fileName)}</strong></p>`
-          : '<p class="empty">(PDF 미첨부)</p>';
-        return `${notes}${notes ? "<br/><br/>" : ""}${pdfLine}`;
-      })()
+      "<p><strong>오픈카톡방으로 수현쌤에게 제출</strong> (기한: 2026년 9월 6일 23:59)</p>"
     )}`;
 }
 

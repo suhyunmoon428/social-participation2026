@@ -65,7 +65,7 @@ export const STAGES: StageDef[] = [
         key: "analysisForms",
         emoji: "📝",
         label: "문제 분석 양식 준비",
-        hint: "문제분석 단계에 필요한 양식(설문지, 면담 질문지 등)을 PDF 파일로 업로드해 주세요.",
+        hint: "양식 파일은 사이트에 올리지 말고, 오픈카톡방으로 수현쌤에게 제출해 주세요. (기한: 2026.9.6. 23:59)",
         type: "analysisFormPdf",
       },
     ],
@@ -328,7 +328,8 @@ export function fieldFilled(
     );
   }
   if (field.type === "analysisFormPdf") {
-    return Boolean(parseAnalysisForm(value).pdf?.storagePath);
+    // PDF 업로드 대신 오픈카톡 제출로 대체 — 진행률에서 막히지 않도록 완료 처리
+    return true;
   }
   return value.trim().length > 0;
 }
@@ -365,8 +366,7 @@ export function contentToPlainText(content: ProjectContent): string {
           return `- ${f.label}:\n  · 활동 내용: ${row.content || "-"}\n  · 기간: ${row.period || "-"}\n  · 장소: ${row.place || "-"}\n  · 방법: ${row.method || "-"}\n  · 준비: ${row.prep || "-"}\n  · 결과: ${row.result || "-"}`;
         }
         if (f.type === "analysisFormPdf") {
-          const form = parseAnalysisForm(raw);
-          return `- ${f.label}:\n  · 설명: ${form.notes || "(없음)"}\n  · PDF: ${form.pdf?.fileName ?? "(미첨부)"}`;
+          return `- ${f.label}: 오픈카톡방으로 수현쌤에게 제출 (기한: 2026-09-06 23:59)`;
         }
         return `- ${f.label}: ${raw || "(작성 전)"}`;
       })

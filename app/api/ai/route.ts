@@ -97,15 +97,8 @@ export async function POST(request: Request) {
     const stageTextParts = stageDef.fields.map((f) => {
       const raw = (stageValues[f.key] ?? "").trim();
       let display = raw || "(작성 전)";
-      if (f.type === "analysisFormPdf" && raw.startsWith("{")) {
-        try {
-          const parsed = JSON.parse(raw) as { notes?: string; pdf?: { fileName?: string } };
-          const notes = (parsed.notes ?? "").trim() || "(설명 없음)";
-          const pdf = parsed.pdf?.fileName ? `PDF: ${parsed.pdf.fileName}` : "PDF: (미첨부)";
-          display = `${notes} / ${pdf}`;
-        } catch {
-          display = raw;
-        }
+      if (f.type === "analysisFormPdf") {
+        display = "오픈카톡방으로 수현쌤에게 제출 (기한: 2026-09-06 23:59)";
       }
       return `- ${f.label}: ${display}`;
     });
@@ -114,13 +107,8 @@ export async function POST(request: Request) {
     const writtenLength = stageDef.fields.reduce((sum, f) => {
       const raw = (stageValues[f.key] ?? "").trim();
       if (!raw) return sum;
-      if (f.type === "analysisFormPdf" && raw.startsWith("{")) {
-        try {
-          const parsed = JSON.parse(raw) as { notes?: string; pdf?: { storagePath?: string } };
-          return sum + (parsed.notes?.trim().length ?? 0) + (parsed.pdf?.storagePath ? 20 : 0);
-        } catch {
-          return sum + raw.length;
-        }
+      if (f.type === "analysisFormPdf") {
+        return sum; // 오픈카톡 제출 항목은 AI 분량 계산에서 제외
       }
       return sum + raw.length;
     }, 0);

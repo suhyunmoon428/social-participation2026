@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { apiFetch } from "@/lib/fetcher";
-import { STAGES, parseActivityCard, parseAnalysisForm, parseMemberRoles, type ProjectContent } from "@/lib/stages";
+import { STAGES, parseActivityCard, parseMemberRoles, type ProjectContent } from "@/lib/stages";
 import type { StageFeedbackStore } from "@/lib/stageFeedback";
 import { getFieldFeedback } from "@/lib/stageFeedback";
 import { TeacherFieldFeedback } from "@/components/teacher/TeacherFieldFeedback";
@@ -161,14 +161,9 @@ export function TeamDetail({ teamId, onBack }: { teamId: string; onBack: () => v
                     `결과: ${row.result || "-"}`,
                   ].join("\n");
                 }
-                if (field.type === "analysisFormPdf" && raw) {
-                  const form = parseAnalysisForm(raw);
-                  display = [
-                    form.notes ? `설명: ${form.notes}` : "",
-                    form.pdf ? `PDF: ${form.pdf.fileName}` : "PDF: (미첨부)",
-                  ]
-                    .filter(Boolean)
-                    .join("\n");
+                if (field.type === "analysisFormPdf") {
+                  display =
+                    "오픈카톡방으로 수현쌤에게 제출 (기한: 2026년 9월 6일 23:59)";
                 }
                 return (
                   <div key={field.key}>

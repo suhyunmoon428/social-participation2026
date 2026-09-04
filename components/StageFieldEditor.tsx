@@ -9,7 +9,7 @@ import { TypingIndicator } from "@/components/TypingIndicator";
 import type { FieldTypist, PeerPresence } from "@/lib/presence";
 import { colorForStudent } from "@/lib/presence";
 import type { FieldDef } from "@/lib/stages";
-import { fieldFilled, parseAnalysisForm } from "@/lib/stages";
+import { fieldFilled } from "@/lib/stages";
 import { Markdown } from "@/components/Markdown";
 
 type Member = { id: string; name: string; role?: string };
@@ -52,8 +52,7 @@ export function StageFieldEditor({
     field.type === "activityCard" ||
     field.type === "analysisFormPdf";
 
-  const charCount =
-    field.type === "analysisFormPdf" ? parseAnalysisForm(value).notes.trim().length : value.trim().length;
+  const charCount = value.trim().length;
 
   return (
     <section
@@ -95,7 +94,11 @@ export function StageFieldEditor({
               done ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400",
             ].join(" ")}
           >
-            {done ? "작성 완료 ✓" : "작성 중"}
+            {field.type === "analysisFormPdf"
+              ? "오픈카톡 제출"
+              : done
+                ? "작성 완료 ✓"
+                : "작성 중"}
           </span>
         )}
       </div>
