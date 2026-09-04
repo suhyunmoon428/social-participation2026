@@ -72,7 +72,7 @@ export async function chatComplete(
       "X-Title": asciiHeaderValue(readEnvValue("OPENROUTER_APP_NAME"), DEFAULT_APP_TITLE),
     },
     body: JSON.stringify({
-      model: readEnvValue("OPENROUTER_MODEL") || "google/gemini-2.0-flash-001",
+      model: readEnvValue("OPENROUTER_MODEL") || "google/gemini-2.5-flash",
       messages,
       temperature: options.temperature ?? 0.6,
       max_tokens: options.maxTokens ?? 1200,
