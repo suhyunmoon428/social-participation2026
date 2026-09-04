@@ -6,9 +6,9 @@ import { STAGE_BY_KEY } from "@/lib/stages";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-export const ATTACHMENT_BUCKET = "project-attachments";
+const ATTACHMENT_BUCKET = "project-attachments";
 /** 브라우저 → Supabase 직접 업로드라 Vercel 본문 한도를 피한다 */
-export const PDF_MAX_BYTES = 50 * 1024 * 1024;
+const PDF_MAX_BYTES = 50 * 1024 * 1024;
 
 type Body = {
   stageKey?: string;
