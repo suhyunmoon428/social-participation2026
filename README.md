@@ -43,7 +43,7 @@ Copy-Item .env.local.example .env.local
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon public key (실시간 채널 전용) | 브라우저 노출 OK |
 | `SUPABASE_SERVICE_ROLE_KEY` | service role key — 모든 DB 접근에 사용 | **서버 전용** |
 | `OPENROUTER_API_KEY` | OpenRouter API 키 | **서버 전용** |
-| `OPENROUTER_MODEL` | 사용 모델 (예: `google/gemini-2.0-flash-001`) | 서버 |
+| `OPENROUTER_MODEL` | 사용 모델 (예: `google/gemini-2.5-flash`) | 서버 |
 | `SESSION_SECRET` | 세션 쿠키 서명용 랜덤 문자열(32자 이상) | **서버 전용** |
 | `TEACHER_PASSWORD_HASH` | 교사 대시보드 비밀번호 bcrypt 해시 | **서버 전용** |
 | `TEACHER_PASSWORD` | 해시가 없을 때 사용하는 평문(개발용) | **서버 전용** |
