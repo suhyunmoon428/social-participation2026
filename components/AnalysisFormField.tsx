@@ -5,6 +5,8 @@ import { useToast } from "@/components/Toast";
 import { apiFetch } from "@/lib/fetcher";
 import { parseAnalysisForm, type AnalysisFormValue } from "@/lib/stages";
 
+const PDF_MAX_BYTES = 50 * 1024 * 1024;
+
 type Props = {
   value: string;
   stageKey: string;
@@ -29,33 +31,52 @@ export function AnalysisFormField({ value, stageKey, fieldKey, onChange, onFocus
       show("PDF 파일만 업로드할 수 있어요.", "error");
       return;
     }
-    if (file.size > 4 * 1024 * 1024) {
-      show("파일 크기는 4MB 이하여야 해요.", "error");
+    if (file.size > PDF_MAX_BYTES) {
+      show("파일 크기는 50MB 이하여야 해요.", "error");
       return;
     }
 
     setUploading(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      form.append("stageKey", stageKey);
-      form.append("fieldKey", fieldKey);
-
-      const result = await apiFetch<{
+      const signed = await apiFetch<{
         fileName: string;
         storagePath: string;
+        token: string;
+        signedUrl: string;
         uploadedAt: string;
       }>("/api/projects/upload-pdf", {
         method: "POST",
-        body: form,
+        body: JSON.stringify({
+          stageKey,
+          fieldKey,
+          fileName: file.name,
+          fileSize: file.size,
+          contentType: file.type || "application/pdf",
+        }),
       });
+
+      // Vercel을 거치지 않고 Supabase Storage로 직접 업로드 (서명 URL)
+      const uploadRes = await fetch(signed.signedUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type || "application/pdf",
+          "x-upsert": "true",
+        },
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        const detail = await uploadRes.text().catch(() => "");
+        console.error("[pdf-upload]", uploadRes.status, detail);
+        throw new Error("파일을 업로드하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      }
 
       update({
         ...parsed,
         pdf: {
-          fileName: result.fileName,
-          storagePath: result.storagePath,
-          uploadedAt: result.uploadedAt,
+          fileName: signed.fileName,
+          storagePath: signed.storagePath,
+          uploadedAt: signed.uploadedAt,
         },
       });
       show("PDF를 업로드했어요! 📎", "success");
@@ -143,7 +164,7 @@ export function AnalysisFormField({ value, stageKey, fieldKey, onChange, onFocus
             <span className="mt-2 text-[12px] font-medium text-violet-700">
               {uploading ? "업로드 중…" : "PDF 파일 선택"}
             </span>
-            <span className="mt-1 text-[10px] text-slate-400">최대 4MB · PDF만 가능</span>
+            <span className="mt-1 text-[10px] text-slate-400">최대 50MB · PDF만 가능</span>
           </label>
         )}
       </div>

@@ -6,71 +6,77 @@ import { STAGE_BY_KEY } from "@/lib/stages";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const BUCKET = "project-attachments";
-/** Vercel 서버리스 요청 본문 한도(~4.5MB)보다 작게 유지 */
-const MAX_BYTES = 4 * 1024 * 1024;
+export const ATTACHMENT_BUCKET = "project-attachments";
+/** 브라우저 → Supabase 직접 업로드라 Vercel 본문 한도를 피한다 */
+export const PDF_MAX_BYTES = 50 * 1024 * 1024;
 
-function isUploadBlob(value: FormDataEntryValue | null): value is File {
-  return Boolean(
-    value &&
-      typeof value !== "string" &&
-      typeof (value as Blob).arrayBuffer === "function" &&
-      typeof (value as Blob).size === "number"
-  );
-}
-
-function uploadFileName(file: File | Blob): string {
-  const named = file as Blob & { name?: string };
-  return (named.name || "upload.pdf").trim() || "upload.pdf";
-}
+type Body = {
+  stageKey?: string;
+  fieldKey?: string;
+  fileName?: string;
+  fileSize?: number;
+  contentType?: string;
+};
 
 async function ensureBucket(db: ReturnType<typeof supabaseAdmin>) {
   try {
     const { data: buckets } = await db.storage.listBuckets();
-    if (buckets?.some((b) => b.id === BUCKET || b.name === BUCKET)) return;
-  } catch {
-    // list 실패해도 upload 시도
+    const exists = buckets?.some((b) => b.id === ATTACHMENT_BUCKET || b.name === ATTACHMENT_BUCKET);
+    if (exists) {
+      await db.storage.updateBucket(ATTACHMENT_BUCKET, {
+        public: false,
+        fileSizeLimit: PDF_MAX_BYTES,
+        allowedMimeTypes: ["application/pdf"],
+      });
+      return;
+    }
+  } catch (error) {
+    console.error("[ensureBucket] list/update", error);
   }
 
-  const { error } = await db.storage.createBucket(BUCKET, {
+  const { error } = await db.storage.createBucket(ATTACHMENT_BUCKET, {
     public: false,
-    fileSizeLimit: MAX_BYTES,
+    fileSizeLimit: PDF_MAX_BYTES,
     allowedMimeTypes: ["application/pdf"],
   });
 
   if (error && !/already exists|duplicate|exists/i.test(error.message ?? "")) {
-    console.error("[ensureBucket]", error);
+    console.error("[ensureBucket] create", error);
   }
 }
 
+/**
+ * PDF는 Vercel을 거치지 않고 Supabase Storage로 직접 올린다.
+ * 이 API는 서명된 업로드 URL만 발급한다.
+ */
 export async function POST(request: Request) {
   try {
     const session = getStudentSession();
     if (!session) return fail("UNAUTHENTICATED", 401);
 
-    let form: FormData;
+    let body: Body;
     try {
-      form = await request.formData();
-    } catch (error) {
-      console.error("[upload-pdf] formData", error);
-      return fail("FILE_TOO_LARGE", 413);
-    }
-
-    const file = form.get("file");
-    const stageKey = String(form.get("stageKey") ?? "");
-    const fieldKey = String(form.get("fieldKey") ?? "");
-
-    if (!isUploadBlob(file)) return fail("INVALID_INPUT", 400);
-    if (!STAGE_BY_KEY[stageKey]?.fields.some((f) => f.key === fieldKey)) {
+      body = await request.json();
+    } catch {
       return fail("INVALID_INPUT", 400);
     }
 
-    const fileName = uploadFileName(file);
+    const stageKey = String(body.stageKey ?? "");
+    const fieldKey = String(body.fieldKey ?? "");
+    const fileName = String(body.fileName ?? "").trim();
+    const fileSize = Number(body.fileSize ?? 0);
+    const contentType = String(body.contentType ?? "");
+
+    if (!STAGE_BY_KEY[stageKey]?.fields.some((f) => f.key === fieldKey)) {
+      return fail("INVALID_INPUT", 400);
+    }
+    if (!fileName) return fail("INVALID_INPUT", 400);
+
     const isPdf =
-      file.type === "application/pdf" || fileName.toLowerCase().endsWith(".pdf");
+      contentType === "application/pdf" || fileName.toLowerCase().endsWith(".pdf");
     if (!isPdf) return fail("PDF_ONLY", 400);
-    if (file.size <= 0) return fail("INVALID_INPUT", 400);
-    if (file.size > MAX_BYTES) return fail("FILE_TOO_LARGE", 400);
+    if (!Number.isFinite(fileSize) || fileSize <= 0) return fail("INVALID_INPUT", 400);
+    if (fileSize > PDF_MAX_BYTES) return fail("FILE_TOO_LARGE", 400);
 
     let db;
     try {
@@ -91,23 +97,21 @@ export async function POST(request: Request) {
 
     const safeName = fileName.replace(/[^\w.\-가-힣]/g, "_").slice(0, 120) || "upload.pdf";
     const storagePath = `${membership.team_id}/${stageKey}/${fieldKey}/${Date.now()}-${safeName}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
 
-    const { error: uploadError } = await db.storage
-      .from(BUCKET)
-      .upload(storagePath, buffer, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
+    const { data, error } = await db.storage
+      .from(ATTACHMENT_BUCKET)
+      .createSignedUploadUrl(storagePath);
 
-    if (uploadError) {
-      console.error("[upload-pdf] storage", uploadError);
-      return fail("UPLOAD_FAILED", 500, uploadError);
+    if (error || !data?.signedUrl || !data.token) {
+      console.error("[upload-pdf] signed url", error);
+      return fail("UPLOAD_FAILED", 500, error);
     }
 
     return ok({
       fileName,
-      storagePath,
+      storagePath: data.path || storagePath,
+      token: data.token,
+      signedUrl: data.signedUrl,
       uploadedAt: new Date().toISOString(),
     });
   } catch (error) {

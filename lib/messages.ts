@@ -26,7 +26,7 @@ export const FRIENDLY_MESSAGES = {
   SESSION_NOT_CONFIGURED:
     "서버 설정(SESSION_SECRET)이 필요해요. Vercel 환경변수를 확인한 뒤 다시 배포해 주세요.",
   PDF_ONLY: "PDF 파일만 업로드할 수 있어요.",
-  FILE_TOO_LARGE: "파일이 너무 커요. 4MB 이하 PDF만 업로드해 주세요.",
+  FILE_TOO_LARGE: "파일이 너무 커요. 50MB 이하 PDF만 업로드해 주세요.",
   UPLOAD_FAILED: "파일을 업로드하지 못했어요. 잠시 후 다시 시도하거나, 선생님께 Storage 설정을 확인해 달라고 요청해 주세요.",
   UNKNOWN: "예상하지 못한 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
 } as const;
