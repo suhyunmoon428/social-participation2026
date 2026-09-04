@@ -94,9 +94,40 @@ export async function POST(request: Request) {
     const feedbackRequest = FULL_FEEDBACK_REQUEST;
 
     const stageValues = content[stageKey] ?? {};
-    const stageText = stageDef.fields
-      .map((f) => `- ${f.label}: ${(stageValues[f.key] ?? "").trim() || "(작성 전)"}`)
-      .join("\n");
+    const stageTextParts = stageDef.fields.map((f) => {
+      const raw = (stageValues[f.key] ?? "").trim();
+      let display = raw || "(작성 전)";
+      if (f.type === "analysisFormPdf" && raw.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(raw) as { notes?: string; pdf?: { fileName?: string } };
+          const notes = (parsed.notes ?? "").trim() || "(설명 없음)";
+          const pdf = parsed.pdf?.fileName ? `PDF: ${parsed.pdf.fileName}` : "PDF: (미첨부)";
+          display = `${notes} / ${pdf}`;
+        } catch {
+          display = raw;
+        }
+      }
+      return `- ${f.label}: ${display}`;
+    });
+    const stageText = stageTextParts.join("\n");
+
+    const writtenLength = stageDef.fields.reduce((sum, f) => {
+      const raw = (stageValues[f.key] ?? "").trim();
+      if (!raw) return sum;
+      if (f.type === "analysisFormPdf" && raw.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(raw) as { notes?: string; pdf?: { storagePath?: string } };
+          return sum + (parsed.notes?.trim().length ?? 0) + (parsed.pdf?.storagePath ? 20 : 0);
+        } catch {
+          return sum + raw.length;
+        }
+      }
+      return sum + raw.length;
+    }, 0);
+
+    if (writtenLength < 20) {
+      return fail("AI_EMPTY_STAGE", 400);
+    }
 
     const { data: history } = await db
       .from("ai_messages")

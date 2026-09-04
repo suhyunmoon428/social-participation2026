@@ -69,9 +69,13 @@ Supabase 대시보드 → **SQL Editor** → `supabase/schema.sql` 전체 내용
 생성되는 객체:
 
 - 테이블: `students`, `teams`, `team_members`, `projects`, `project_edits`, `ai_messages`, `assessments`
-- 함수: `generate_join_code()`, `enforce_team_capacity()`, `touch_updated_at()`
+- 함수: `generate_join_code()`, `touch_updated_at()`
 - 뷰: `team_progress`
 - 모든 테이블에 RLS 활성화 + 클라이언트(anon/authenticated) 접근 전면 차단
+
+이미 배포된 DB에서 **팀 3명 제한을 풀려면** `supabase/migration_remove_team_cap.sql` 을 SQL Editor에서 추가로 실행하세요.
+
+PDF 첨부를 쓰려면 `supabase/migration_storage.sql` 도 한 번 실행하세요.
 
 ### 5) 개발 서버 실행
 

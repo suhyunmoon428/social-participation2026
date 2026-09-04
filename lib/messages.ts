@@ -12,7 +12,8 @@ export const FRIENDLY_MESSAGES = {
   WRONG_PASSWORD: "비밀번호가 맞지 않아요.",
   DUPLICATE_STUDENT: "이미 등록된 학생이에요. 비밀번호로 로그인해 주세요.",
   TEAM_NOT_FOUND: "참여 코드를 다시 확인해 주세요.",
-  TEAM_FULL: "이 팀은 이미 3명이 모두 모였어요.",
+  TEAM_FULL: "이 팀에는 더 이상 참여할 수 없어요. 선생님께 문의해 주세요.",
+  AI_EMPTY_STAGE: "이 단계에 작성한 내용이 거의 없어요. 먼저 칸을 채운 뒤 AI 피드백을 받아 보세요.",
   ALREADY_IN_TEAM: "이미 다른 팀에 참여하고 있어요.",
   AI_FAILED: "AI 도우미가 잠시 쉬고 있어요. 조금 뒤에 다시 요청해 주세요.",
   AI_SETUP_FAILED:

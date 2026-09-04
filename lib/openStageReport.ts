@@ -2,45 +2,6 @@ import { buildStageReportHtml, type StageReportOptions } from "@/lib/stageReport
 
 const STORAGE_KEY = "stageReportPayload";
 
-function printHtmlInHiddenFrame(html: string): boolean {
-  const iframe = document.createElement("iframe");
-  iframe.setAttribute("title", "사회참여활동 보고서");
-  iframe.setAttribute(
-    "style",
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none"
-  );
-  document.body.appendChild(iframe);
-
-  const win = iframe.contentWindow;
-  const doc = win?.document;
-  if (!win || !doc) {
-    iframe.remove();
-    return false;
-  }
-
-  doc.open();
-  doc.write(html);
-  doc.close();
-
-  let printed = false;
-  const triggerPrint = () => {
-    if (printed) return;
-    printed = true;
-    try {
-      win.focus();
-      win.print();
-    } catch {
-      printed = false;
-      return;
-    }
-    window.setTimeout(() => iframe.remove(), 2000);
-  };
-
-  iframe.onload = () => window.setTimeout(triggerPrint, 200);
-  window.setTimeout(triggerPrint, 800);
-  return true;
-}
-
 export function openStageReport(options: StageReportOptions): boolean {
   if (typeof window === "undefined") return false;
 
@@ -51,10 +12,8 @@ export function openStageReport(options: StageReportOptions): boolean {
     return false;
   }
 
-  const html = buildStageReportHtml(options);
-  if (printHtmlInHiddenFrame(html)) return true;
-
-  // iframe 인쇄가 막히면 팝업 없이 같은 탭에서 인쇄 페이지로 이동
+  // 숨은 iframe 인쇄는 브라우저/팝업 정책에 막히는 경우가 많아
+  // 전용 인쇄 페이지로 이동해 PDF 저장·인쇄하도록 한다.
   window.location.assign("/print/report");
   return true;
 }
@@ -68,4 +27,11 @@ export function readStageReportPayload(): StageReportOptions | null {
   } catch {
     return null;
   }
+}
+
+/** 인쇄 페이지에서 HTML 미리보기용 */
+export function buildStoredStageReportHtml(): string | null {
+  const options = readStageReportPayload();
+  if (!options) return null;
+  return buildStageReportHtml(options);
 }

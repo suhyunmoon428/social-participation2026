@@ -73,17 +73,7 @@ export function FeedbackPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-white/80 backdrop-blur-sm">
       <div className="grid shrink-0 grid-cols-1 gap-3 p-4">
-        <button
-          type="button"
-          className={[
-            "flex min-h-[220px] flex-col rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50 to-white p-3.5 text-left shadow-sm transition",
-            aiBusy || submitBusy
-              ? "cursor-wait opacity-80"
-              : "cursor-pointer hover:border-violet-300 hover:shadow-md",
-          ].join(" ")}
-          disabled={aiBusy || submitBusy}
-          onClick={requestFeedback}
-        >
+        <div className="flex min-h-[220px] flex-col rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50 to-white p-3.5 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="text-lg">🤖</span>
             <div className="min-w-0 flex-1">
@@ -93,26 +83,37 @@ export function FeedbackPanel({
                   {formatKoreanDateTime(latestAi.at)}
                 </p>
               ) : (
-                <p className="text-[10px] text-violet-300">클릭하여 받기</p>
+                <p className="text-[10px] text-violet-300">이 단계 내용을 검토해 줘요</p>
               )}
             </div>
           </div>
-          <div className="mt-2 flex-1 overflow-y-auto text-[12px] leading-5 text-slate-600">
+
+          <div className="mt-2 min-h-[120px] flex-1 overflow-y-auto text-[12px] leading-5 text-slate-600">
             {aiBusy ? (
               <p className="text-violet-500">✨ AI가 이 단계 내용을 검토하고 있어요…</p>
             ) : latestAi ? (
               <Markdown text={latestAi.content} />
             ) : (
               <p className="text-slate-400">
-                이 칸을 클릭하면 내용 검토·근거 점검·부작용 점검을 포함한 AI 피드백이
-                자동으로 제공돼요.
+                아래 버튼을 누르면 내용 검토·근거 점검·부작용 점검을 포함한 AI 피드백이
+                제공돼요. 먼저 이 단계 칸을 어느 정도 채운 뒤 요청해 주세요.
               </p>
             )}
           </div>
-          <p className="mt-3 text-center text-[10px] font-medium text-violet-600">
-            {aiBusy ? "분석 중…" : latestAi ? "다시 클릭하면 피드백을 새로 받아요" : "👆 클릭해서 AI 피드백 받기"}
-          </p>
-        </button>
+
+          <button
+            type="button"
+            className="mt-3 w-full rounded-lg bg-violet-600 px-3 py-2 text-[12px] font-semibold text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60"
+            disabled={aiBusy || submitBusy}
+            onClick={requestFeedback}
+          >
+            {aiBusy
+              ? "분석 중…"
+              : latestAi
+                ? "🔄 AI 피드백 다시 받기"
+                : "✨ AI 피드백 받기"}
+          </button>
+        </div>
 
         <div className="flex min-h-[220px] flex-col rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-3.5 shadow-sm">
           {teacherFeedbackIsNew && (

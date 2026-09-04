@@ -112,6 +112,12 @@ export function AnalysisFormField({ value, stageKey, fieldKey, onChange, onFocus
             >
               열기
             </a>
+            <a
+              className="text-[11px] font-medium text-violet-700 underline"
+              href={`/api/projects/pdf?path=${encodeURIComponent(parsed.pdf.storagePath)}&download=1`}
+            >
+              다운로드
+            </a>
             <button
               type="button"
               className="text-[11px] text-rose-500 hover:underline"

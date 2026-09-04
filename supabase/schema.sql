@@ -32,12 +32,12 @@ create table if not exists public.teams (
   name       text not null check (char_length(trim(name)) between 1 and 40),
   join_code  text not null unique,                 -- 6자리 대문자/숫자
   owner_id   uuid not null references public.students(id) on delete cascade,
-  max_members smallint not null default 3 check (max_members between 1 and 3),
+  max_members smallint not null default 99 check (max_members between 1 and 99),
   created_at timestamptz not null default now()
 );
 
 -- ---------------------------------------------------------------------------
--- 3. team_members : 팀 구성원 (팀당 3인 이내)
+-- 3. team_members : 팀 구성원 (인원 제한 없음)
 -- ---------------------------------------------------------------------------
 create table if not exists public.team_members (
   team_id    uuid not null references public.teams(id) on delete cascade,
@@ -51,30 +51,9 @@ create table if not exists public.team_members (
 create unique index if not exists team_members_one_team_per_student
   on public.team_members (student_id);
 
--- 팀 정원(3인) 초과 방지 트리거
-create or replace function public.enforce_team_capacity()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  current_count int;
-  cap int;
-begin
-  select count(*) into current_count from public.team_members where team_id = new.team_id;
-  select max_members into cap from public.teams where id = new.team_id;
-  if current_count >= coalesce(cap, 3) then
-    raise exception 'TEAM_FULL';
-  end if;
-  return new;
-end;
-$$;
-
+-- 예전 3명 정원 트리거가 남아 있으면 제거 (신규 설치·재실행 모두 안전)
 drop trigger if exists team_members_capacity on public.team_members;
-create trigger team_members_capacity
-  before insert on public.team_members
-  for each row execute function public.enforce_team_capacity();
+drop function if exists public.enforce_team_capacity();
 
 -- ---------------------------------------------------------------------------
 -- 4. projects : 팀별 4단계 서술 기록 (실시간 구독 대상)

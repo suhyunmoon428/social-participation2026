@@ -8,6 +8,21 @@ export const runtime = "nodejs";
 const BUCKET = "project-attachments";
 const MAX_BYTES = 8 * 1024 * 1024;
 
+async function ensureBucket(db: ReturnType<typeof supabaseAdmin>) {
+  const { data: buckets } = await db.storage.listBuckets();
+  if (buckets?.some((b) => b.id === BUCKET || b.name === BUCKET)) return;
+
+  const { error } = await db.storage.createBucket(BUCKET, {
+    public: false,
+    fileSizeLimit: MAX_BYTES,
+    allowedMimeTypes: ["application/pdf"],
+  });
+  // 이미 있으면 무시
+  if (error && !/already exists|duplicate/i.test(error.message ?? "")) {
+    throw error;
+  }
+}
+
 export async function POST(request: Request) {
   const session = getStudentSession();
   if (!session) return fail("UNAUTHENTICATED", 401);
@@ -43,6 +58,8 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (!membership) return fail("FORBIDDEN", 403);
+
+    await ensureBucket(db);
 
     const safeName = file.name.replace(/[^\w.\-가-힣]/g, "_").slice(0, 120);
     const storagePath = `${membership.team_id}/${stageKey}/${fieldKey}/${Date.now()}-${safeName}`;
