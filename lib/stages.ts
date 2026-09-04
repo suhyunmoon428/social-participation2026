@@ -65,7 +65,7 @@ export const STAGES: StageDef[] = [
         key: "analysisForms",
         emoji: "📝",
         label: "문제 분석 양식 준비",
-        hint: "양식 파일은 사이트에 올리지 말고, 오픈카톡방으로 수현쌤에게 제출해 주세요. (기한: 2026.9.6. 23:59)",
+        hint: "사이트에 파일을 올리지 마세요. 아래 안내대로 제출해 주세요.",
         type: "analysisFormPdf",
       },
     ],
