@@ -10,7 +10,7 @@ const BUCKET = "project-attachments";
 /** Vercel 서버리스 요청 본문 한도(~4.5MB)보다 작게 유지 */
 const MAX_BYTES = 4 * 1024 * 1024;
 
-function isUploadBlob(value: FormDataEntryValue | null): value is Blob {
+function isUploadBlob(value: FormDataEntryValue | null): value is File {
   return Boolean(
     value &&
       typeof value !== "string" &&
@@ -19,7 +19,7 @@ function isUploadBlob(value: FormDataEntryValue | null): value is Blob {
   );
 }
 
-function uploadFileName(file: Blob): string {
+function uploadFileName(file: File | Blob): string {
   const named = file as Blob & { name?: string };
   return (named.name || "upload.pdf").trim() || "upload.pdf";
 }
