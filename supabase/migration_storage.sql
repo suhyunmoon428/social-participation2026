@@ -1,6 +1,16 @@
 -- Supabase Storage: 팀별 PDF 첨부 파일
 -- SQL Editor에서 한 번 실행하세요.
 
-insert into storage.buckets (id, name, public)
-values ('project-attachments', 'project-attachments', false)
-on conflict (id) do nothing;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'project-attachments',
+  'project-attachments',
+  false,
+  4194304, -- 4MB
+  array['application/pdf']::text[]
+)
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;

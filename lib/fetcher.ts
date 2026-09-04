@@ -36,7 +36,9 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
   }
 
   if (!response.ok || !payload?.ok) {
-    throw new FriendlyError(payload?.message ?? FRIENDLY_MESSAGES.UNKNOWN);
+    const fallback =
+      response.status === 413 ? FRIENDLY_MESSAGES.FILE_TOO_LARGE : FRIENDLY_MESSAGES.UNKNOWN;
+    throw new FriendlyError(payload?.message ?? fallback);
   }
 
   return payload.data as T;

@@ -29,8 +29,8 @@ export function AnalysisFormField({ value, stageKey, fieldKey, onChange, onFocus
       show("PDF 파일만 업로드할 수 있어요.", "error");
       return;
     }
-    if (file.size > 8 * 1024 * 1024) {
-      show("파일 크기는 8MB 이하여야 해요.", "error");
+    if (file.size > 4 * 1024 * 1024) {
+      show("파일 크기는 4MB 이하여야 해요.", "error");
       return;
     }
 
@@ -143,7 +143,7 @@ export function AnalysisFormField({ value, stageKey, fieldKey, onChange, onFocus
             <span className="mt-2 text-[12px] font-medium text-violet-700">
               {uploading ? "업로드 중…" : "PDF 파일 선택"}
             </span>
-            <span className="mt-1 text-[10px] text-slate-400">최대 8MB · PDF만 가능</span>
+            <span className="mt-1 text-[10px] text-slate-400">최대 4MB · PDF만 가능</span>
           </label>
         )}
       </div>
